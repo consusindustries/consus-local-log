@@ -92,7 +92,9 @@ Environment variables only — no flags, no config file.
 - `upstream_ok` — the cached result of a `HEAD` to `LOCALLOG_UPSTREAM`,
   refreshed on a background timer every 30s. Reading it never touches the
   network, so this endpoint is safe to use as a liveness or readiness probe
-  even while the upstream is down.
+  even while the upstream is down. For the first moment after startup, until
+  that first probe returns, it reports `false` rather than guessing — the
+  proxy is already serving traffic at that point.
 - `log_misses` — entries that could not be written since startup. **This is
   the number to alert on.** It is the only signal that requests are being
   proxied but not recorded, and anything above zero means the audit trail has

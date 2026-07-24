@@ -30,3 +30,10 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Captured traffic from local runs — never commit
+*.jsonl
+logs/
+
+# Locally built binary
+/consus-local-log

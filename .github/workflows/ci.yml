@@ -1,0 +1,69 @@
+# Every commit is provably formatted, vetted, race-tested on Linux and Windows,
+# and shipped as an image that actually logs. Official actions only, pinned to
+# commit SHAs so a moved tag cannot change what runs here.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: "1.26"
+      # A filesystem small enough to fill, so the disk-full path in the writer
+      # is exercised for real rather than skipped. Linux only; the test skips
+      # itself everywhere the variable is unset.
+      - name: Mount a 1 MB filesystem for the disk-full test
+        if: runner.os == 'Linux'
+        run: |
+          sudo mkdir -p /mnt/locallog-small
+          sudo mount -t tmpfs -o size=1m tmpfs /mnt/locallog-small
+          sudo chmod 1777 /mnt/locallog-small
+          echo "LOCALLOG_TEST_SMALLDIR=/mnt/locallog-small" >> "$GITHUB_ENV"
+      - run: go vet ./...
+      - run: go build ./...
+      - run: go test -race ./...
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: "1.26"
+      - run: test -z "$(gofmt -l .)"
+      - run: docker build -t consus-local-log .
+      # The image has to log with no host setup at all: no bind mount, no
+      # pre-created directory, no --user. A Go test cannot see this, because
+      # what breaks it is the image's own directory ownership.
+      - name: The image logs out of the box
+        run: |
+          set -euo pipefail
+          # Nothing listens on port 9 inside the container, so the request gets
+          # a 502 — which is still a request that must be logged.
+          docker run -d --name cll -p 4000:4000 \
+            -e LOCALLOG_UPSTREAM=http://127.0.0.1:9 consus-local-log
+          for _ in $(seq 50); do
+            curl -sf -o /dev/null http://127.0.0.1:4000/healthz && break
+            sleep 0.2
+          done
+          curl -s -o /dev/null -X POST -d '{"model":"ci"}' http://127.0.0.1:4000/v1/chat
+          sleep 1
+          docker run --rm --volumes-from cll alpine \
+            sh -c 'cat /var/log/consus/*.jsonl' | tee line.json
+          grep -q '"path":"/v1/chat"' line.json
+          grep -q '"status":502' line.json
+          # Nothing was dropped: the volume is writable by the image's UID.
+          curl -s http://127.0.0.1:4000/healthz | grep -q '"log_misses":0'
+          docker rm -f cll

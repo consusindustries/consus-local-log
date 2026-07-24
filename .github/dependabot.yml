@@ -1,0 +1,9 @@
+# The workflow pins actions to commit SHAs, which is only safe if something
+# moves those pins forward when the actions are updated. Go modules are not
+# listed because this project has no dependencies and never will.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly

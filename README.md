@@ -223,6 +223,13 @@ exists only on the proxy host's group; on a network firewall, allow
 machines then physically cannot bypass the proxy — an unlogged request is a
 failed request.
 
+The instance needs **direct** outbound 443. The proxy deliberately ignores
+`HTTPS_PROXY` and will not route through a corporate CONNECT proxy: inside a
+TLS-inspection appliance your API keys are plaintext, which is the opposite
+of what this tool exists for. If your network cannot grant one host direct
+egress, open an issue before deploying — that constraint has a topology
+answer, not an env var.
+
 ## What Local Log never does
 
 - **Hold credentials** — the `Authorization` header is copied like every other

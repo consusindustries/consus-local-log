@@ -102,14 +102,22 @@ func logString(b []byte) string {
 	return binaryMarker + base64.StdEncoding.EncodeToString(b)
 }
 
-// keyHash is the only place the Authorization value is examined, and only to
-// hash it for the log line. Forwarding never touches it: the header rides
-// through copyHeaders with everything else.
-func keyHash(auth string) string {
-	if auth == "" {
+// keyHash is the only place a credential is examined, and only to fingerprint
+// it for the log line: the Authorization value when present, else x-api-key —
+// the two headers the LLM ecosystem sends keys in. Forwarding never touches
+// either; they ride through copyHeaders with every other header. When a client
+// sends both, Authorization wins and the fingerprint may name the wrong one —
+// only the gateway knows which credential authenticated, which is what makes
+// x-consus-key-id the authoritative attribution and this the fallback.
+func keyHash(h http.Header) string {
+	cred := h.Get("Authorization")
+	if cred == "" {
+		cred = h.Get("X-Api-Key")
+	}
+	if cred == "" {
 		return ""
 	}
-	sum := sha256.Sum256([]byte(auth))
+	sum := sha256.Sum256([]byte(cred))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -336,7 +344,7 @@ func (s *server) proxy(w http.ResponseWriter, r *http.Request) {
 	e := entry{
 		TS:        start.UTC().Format(tsFormat),
 		day:       start.UTC().Format(dayFormat),
-		KeySHA256: keyHash(r.Header.Get("Authorization")),
+		KeySHA256: keyHash(r.Header),
 		Path:      r.URL.RequestURI(),
 		Method:    r.Method,
 		Status:    http.StatusBadGateway, // until the upstream answers

@@ -125,7 +125,7 @@ field is always present.
 | `ts` | string | request start time, RFC 3339 with milliseconds, UTC |
 | `consus_request_id` | string | `x-consus-request-id` response header; `""` if absent |
 | `consus_key_id` | string | `x-consus-key-id` response header — the key id shown on the Consus portal's API Keys page; `""` if absent |
-| `key_sha256` | string | hex SHA-256 of the raw `Authorization` header value; `""` if absent |
+| `key_sha256` | string | hex SHA-256 of the raw credential the client sent — the `Authorization` value if present, else `x-api-key`; `""` if neither |
 | `path` | string | request path with query |
 | `method` | string | HTTP method |
 | `model` | string | best-effort `"model"` field found in the request body; `""` if not found |
@@ -139,8 +139,13 @@ field is always present.
 | `response` | string | captured response body bytes; for SSE, the verbatim event transcript |
 
 **Attribution.** `consus_key_id` joins each line one-to-one to the key's owner
-on the portal's API Keys page (or your SIEM's key→owner lookup). Lines where
-the gateway never answered carry no key id but always carry `key_sha256`.
+on the portal's API Keys page (or your SIEM's key→owner lookup), and is the
+authoritative answer — only the gateway knows which credential actually
+authenticated. `key_sha256` is the customer-side fallback and cross-check: it
+fingerprints whatever credential the client sent, so it exists even on lines
+the gateway never answered or rejected at the door. If a client sends both
+headers, the fingerprint covers `Authorization` — trust the key id when the
+two disagree.
 
 `truncated` is true whenever what was logged is less than what crossed the
 wire, for either of two reasons: the body exceeded `LOCALLOG_MAX_CAPTURE`, or
@@ -232,8 +237,9 @@ answer, not an env var.
 
 ## What Local Log never does
 
-- **Hold credentials** — the `Authorization` header is copied like every other
-  header; the only other touch is the SHA-256 written to the log line.
+- **Hold credentials** — the credential headers (`Authorization`, `x-api-key`)
+  are copied like every other header; the only other touch is the SHA-256
+  fingerprint written to the log line.
 - **Validate keys** — it has no opinion on whether a request is authorized;
   that's the gateway's job.
 - **Modify traffic** — no headers added or removed (beyond standard hop-by-hop),

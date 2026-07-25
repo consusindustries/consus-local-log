@@ -27,7 +27,6 @@ a field's name, type, or meaning will appear here first.
   suite. The README documents how customers verify or reproduce a release.
 - A contributions policy: the source is public for audit and reproduction;
   pull requests are not accepted and close automatically with an explanation.
-
 - The proxy itself: forwards any path to `LOCALLOG_UPSTREAM` with headers
   copied verbatim, relays responses with a flush after every chunk so SSE
   streams in real time, and appends one JSON line per request to
@@ -47,6 +46,15 @@ a field's name, type, or meaning will appear here first.
 - Tests in four files: unit, the nine acceptance criteria from the spec,
   regressions, and end-to-end runs of the real binary. CI runs them on Linux
   and Windows under the race detector, and checks that the built image logs.
+
+### Changed
+
+- `key_sha256` (log schema) now fingerprints whichever credential header the
+  client sent: the `Authorization` value when present, otherwise `x-api-key`.
+  Previously only `Authorization` was hashed, which left the field empty for
+  Anthropic-style clients. When both headers are present, `Authorization` is
+  the one fingerprinted; `consus_key_id` remains the authoritative
+  attribution.
 
 ### Notes
 

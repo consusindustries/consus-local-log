@@ -124,3 +124,9 @@ of truth. CHANGELOG.md carries the customer-facing history.
   - `dropped` — number of entries lost (queue full or write failure) since the
     previous line was written; 0 when the log is complete. Placed after
     `client_disconnected`.
+- 2026-07-25: `key_sha256` now fingerprints whichever credential header the
+  client sent — `Authorization` when present, else `x-api-key`. Discovered via
+  real traffic: the gateway also serves Anthropic-style clients, which carry
+  the key in `x-api-key`, and their lines were logging an empty hash. When a
+  client sends both headers, `Authorization` wins; `consus_key_id` from the
+  gateway is the authoritative attribution in all cases.

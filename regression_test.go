@@ -388,3 +388,31 @@ func TestProbeNeverPoisonsTheConnectionPool(t *testing.T) {
 		t.Errorf("log entry: %+v", e)
 	}
 }
+
+// TestXAPIKeyCredentialIsHashed covers Anthropic-style authentication, where
+// the key travels in x-api-key and no Authorization header exists. Found in
+// production traffic: an entire preflight corpus — over a hundred lines — had
+// key_sha256 "" because the proxy only ever fingerprinted Authorization, so
+// the log's fallback attribution was empty for the auth style the gateway
+// actually uses.
+func TestXAPIKeyCredentialIsHashed(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, "ok")
+	}))
+	defer upstream.Close()
+
+	_, proxyURL, dir := startTestServer(t, upstream.URL, 1<<20, nil, "")
+
+	req, _ := http.NewRequest("POST", proxyURL+"/v1/messages", strings.NewReader(`{"model":"fab-1"}`))
+	req.Header.Set("x-api-key", "fab-anthropic-style-key")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	e := waitLines(t, dir, 1)[0]
+	if e.KeySHA256 != sha256Hex("fab-anthropic-style-key") {
+		t.Errorf("key_sha256 = %q, want the fingerprint of the x-api-key value", e.KeySHA256)
+	}
+}

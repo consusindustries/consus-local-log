@@ -11,7 +11,7 @@ consus-local-log: a stateless reverse proxy that defense contractors run inside 
 ## Invariants. Never violate, never "improve"
 
 1. Stdlib only. go.mod never gains a require. If a task appears to need a dependency, stop and ask.
-2. The Authorization header is never read, validated, stored, or special-cased. It is copied in the same loop as every other header. The only other touch is the SHA-256 for the log line.
+2. The credential headers — Authorization and x-api-key — are never read, validated, stored, or special-cased. They are copied in the same loop as every other header. The only other touch is the SHA-256 fingerprint for the log line (Authorization if present, else x-api-key).
 3. Bodies are never parsed. Raw bytes forwarded, raw bytes logged. No endpoint-specific logic, ever. New API shapes must work with zero code changes.
 4. No durable state except the log file. No queues, no persisted retries, nothing survives a request.
 5. Availability beats capture. A logging failure never fails or delays a request.

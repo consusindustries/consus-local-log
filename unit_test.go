@@ -393,3 +393,35 @@ func TestWriterRecordsDroppedEntries(t *testing.T) {
 		t.Errorf("later lines report %d dropped, want 0 (losses must not be double-counted)", rest)
 	}
 }
+
+// TestKeyHash pins which credential gets fingerprinted: Authorization when
+// present, else x-api-key, never both. The both-present case documents the
+// known ambiguity — the proxy cannot know which one the gateway honored, so
+// Authorization wins here and x-consus-key-id is the authoritative answer.
+func TestKeyHash(t *testing.T) {
+	h := func(kv ...string) http.Header {
+		out := http.Header{}
+		for i := 0; i < len(kv); i += 2 {
+			out.Set(kv[i], kv[i+1])
+		}
+		return out
+	}
+	cases := []struct {
+		name   string
+		header http.Header
+		want   string
+	}{
+		{"no credential", h(), ""},
+		{"authorization only", h("Authorization", "Bearer fab-key-1"), sha256Hex("Bearer fab-key-1")},
+		{"x-api-key only", h("X-Api-Key", "fab-key-2"), sha256Hex("fab-key-2")},
+		{"x-api-key is case-insensitive", h("x-API-kEy", "fab-key-3"), sha256Hex("fab-key-3")},
+		{"both present: authorization wins", h("Authorization", "Bearer decoy", "X-Api-Key", "fab-real"), sha256Hex("Bearer decoy")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := keyHash(tc.header); got != tc.want {
+				t.Fatalf("keyHash() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

@@ -323,3 +323,68 @@ func TestNoDisconnectAfterCompleteResponse(t *testing.T) {
 		t.Errorf("response capture = %q, want %q", e.Response, body)
 	}
 }
+
+// TestProbeNeverPoisonsTheConnectionPool covers the health prober sharing a
+// transport with proxied traffic. A HEAD of an upstream whose base URL streams
+// forever is complete for the client at the headers while the server side is
+// still mid-handler; if that connection were pooled, the next real request to
+// reuse it would wait forever for a response — and the proxy has no response
+// timeout to break the wait, by design. Found as an intermittent suite hang:
+// whether a request drew the poisoned connection or dialed fresh was a race.
+func TestProbeNeverPoisonsTheConnectionPool(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			io.WriteString(w, "ok")
+			return
+		}
+		// The base URL the prober HEADs: streams until the peer goes away.
+		w.Header().Set("Content-Type", "text/event-stream")
+		fl := w.(http.Flusher)
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			case <-time.After(5 * time.Millisecond):
+				io.WriteString(w, "data: tick\n\n")
+				fl.Flush()
+			}
+		}
+	}))
+	defer upstream.Close()
+
+	s, proxyURL, dir := startTestServer(t, upstream.URL, 1<<20, nil, "")
+	startProber(t, s)
+
+	// Wait until a probe has completed, so any connection it leaked would now
+	// be sitting in the idle pool.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		s.probeMu.Lock()
+		ok := s.upstreamOK
+		s.probeMu.Unlock()
+		if ok {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("prober never completed against the streaming upstream")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// A real request through the proxy must not inherit the probe's
+	// connection. The client timeout is the tripwire: with a poisoned pool
+	// this Get waits forever for response headers.
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(proxyURL + "/v1/x")
+	if err != nil {
+		t.Fatalf("request through the proxy hung after a probe: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || string(body) != "ok" {
+		t.Fatalf("got %d %q, want 200 ok", resp.StatusCode, body)
+	}
+	if e := waitLines(t, dir, 1)[0]; e.Path != "/v1/x" || e.Status != 200 {
+		t.Errorf("log entry: %+v", e)
+	}
+}

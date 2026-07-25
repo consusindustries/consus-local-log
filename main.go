@@ -488,6 +488,13 @@ func (s *server) probe(ctx context.Context) bool {
 	if err != nil {
 		return false
 	}
+	// A probe connection must never go back into the pool proxied traffic
+	// draws from. A HEAD of an endpoint that streams forever is complete for
+	// the client at the response headers while the server still considers the
+	// connection busy; pooled, it would hand the next real request a
+	// connection that never answers — and the proxy has no response timeout
+	// to save it, by design.
+	req.Close = true
 	resp, err := s.transport.RoundTrip(req)
 	if err != nil {
 		return false

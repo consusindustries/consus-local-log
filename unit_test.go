@@ -219,6 +219,7 @@ func TestEntryGoldenJSON(t *testing.T) {
 	e := entry{
 		TS:                 "2026-01-02T03:04:05.678Z",
 		ConsusRequestID:    "rid-1",
+		ConsusKeyID:        "key-01h",
 		KeySHA256:          "deadbeef",
 		Path:               "/v1/chat?stream=1",
 		Method:             "POST",
@@ -228,6 +229,7 @@ func TestEntryGoldenJSON(t *testing.T) {
 		Stream:             true,
 		Truncated:          false,
 		ClientDisconnected: false,
+		Dropped:            0,
 		Request:            `{"model":"fab-1"}`,
 		Response:           "data: ok\n\n",
 		day:                "2026-01-02", // internal routing only, never serialized
@@ -236,7 +238,7 @@ func TestEntryGoldenJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"ts":"2026-01-02T03:04:05.678Z","consus_request_id":"rid-1","key_sha256":"deadbeef","path":"/v1/chat?stream=1","method":"POST","model":"fab-1","status":200,"latency_ms":42,"stream":true,"truncated":false,"client_disconnected":false,"request":"{\"model\":\"fab-1\"}","response":"data: ok\n\n"}`
+	want := `{"ts":"2026-01-02T03:04:05.678Z","consus_request_id":"rid-1","consus_key_id":"key-01h","key_sha256":"deadbeef","path":"/v1/chat?stream=1","method":"POST","model":"fab-1","status":200,"latency_ms":42,"stream":true,"truncated":false,"client_disconnected":false,"dropped":0,"request":"{\"model\":\"fab-1\"}","response":"data: ok\n\n"}`
 	if string(got) != want {
 		t.Fatalf("log schema changed:\n got: %s\nwant: %s", got, want)
 	}
@@ -343,5 +345,51 @@ func TestWriterFilesByEntryDay(t *testing.T) {
 	}
 	if misses := s.misses.Load(); misses != 0 {
 		t.Errorf("log_misses = %d, want 0", misses)
+	}
+}
+
+// TestWriterRecordsDroppedEntries covers the log carrying durable evidence of
+// its own gaps: entries lost while the queue was full are reported in the
+// dropped field of the next line that lands, so an auditor can see the hole
+// without needing the in-memory counter that a restart erases.
+func TestWriterRecordsDroppedEntries(t *testing.T) {
+	dir := t.TempDir()
+	u, _ := url.Parse("http://upstream.invalid")
+	s := newServer(config{upstream: u, dir: dir, maxCapture: 1 << 20})
+
+	// With no writer draining, the channel holds 256 entries and every one
+	// after that is dropped at enqueue.
+	const sent = 300
+	for i := 0; i < sent; i++ {
+		s.enqueue(entry{TS: "2026-01-01T00:00:00.000Z", day: "2026-01-01", Method: "GET", Path: "/v1/a"})
+	}
+	lost := int64(sent - cap(s.logCh))
+	if got := s.misses.Load(); got != lost {
+		t.Fatalf("misses = %d after overfilling the queue, want %d", got, lost)
+	}
+
+	done := make(chan struct{})
+	go s.runWriter(done)
+	close(s.logCh)
+	<-done
+
+	path := filepath.Join(dir, "2026-01-01.jsonl")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := parseLines(t, data, path)
+	if len(entries) != cap(s.logCh) {
+		t.Fatalf("got %d lines, want the %d that fit in the queue", len(entries), cap(s.logCh))
+	}
+	if entries[0].Dropped != lost {
+		t.Errorf("first line dropped = %d, want %d (the entries lost before it was written)", entries[0].Dropped, lost)
+	}
+	var rest int64
+	for _, e := range entries[1:] {
+		rest += e.Dropped
+	}
+	if rest != 0 {
+		t.Errorf("later lines report %d dropped, want 0 (losses must not be double-counted)", rest)
 	}
 }

@@ -374,10 +374,13 @@ func TestClientDisconnect(t *testing.T) {
 }
 
 // Criterion 7: the upstream's x-consus-request-id lands in the log line (and
-// passes through to the client like any other header).
+// passes through to the client like any other header). x-consus-key-id — the
+// attribution join key against the portal's API Keys page — is held to the
+// same standard.
 func TestRequestID(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("x-consus-request-id", "rid-test-123")
+		w.Header().Set("x-consus-key-id", "key-test-456")
 		io.WriteString(w, "ok")
 	}))
 	defer upstream.Close()
@@ -392,8 +395,12 @@ func TestRequestID(t *testing.T) {
 	if v := resp.Header.Get("x-consus-request-id"); v != "rid-test-123" {
 		t.Errorf("client saw request id %q, want rid-test-123", v)
 	}
-	if e := waitLines(t, dir, 1)[0]; e.ConsusRequestID != "rid-test-123" {
+	e := waitLines(t, dir, 1)[0]
+	if e.ConsusRequestID != "rid-test-123" {
 		t.Errorf("consus_request_id = %q, want rid-test-123", e.ConsusRequestID)
+	}
+	if e.ConsusKeyID != "key-test-456" {
+		t.Errorf("consus_key_id = %q, want key-test-456", e.ConsusKeyID)
 	}
 }
 
@@ -444,7 +451,7 @@ func TestUpstreamDown(t *testing.T) {
 	}
 
 	e := waitLines(t, dir, 1)[0]
-	if e.Status != 502 || e.Response != "" || e.ConsusRequestID != "" {
+	if e.Status != 502 || e.Response != "" || e.ConsusRequestID != "" || e.ConsusKeyID != "" {
 		t.Errorf("log entry: %+v", e)
 	}
 	if e.LatencyMS < 0 {

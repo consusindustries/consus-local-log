@@ -111,3 +111,16 @@ On SIGINT/SIGTERM: stop accepting, let in-flight requests finish (no hard deadli
 ## Non-goals (do not build)
 
 Redaction, sampling, retention/rotation, TLS termination, auth on the proxy, metrics endpoints, multi-upstream, a UI, config files, third-party logging integrations.
+
+## Changes since v0.1
+
+This section records deliberate schema evolution so the spec stays the source
+of truth. CHANGELOG.md carries the customer-facing history.
+
+- 2026-07-25: two fields added to the log line for the enterprise deployment
+  (attribution and durable gap evidence):
+  - `consus_key_id` — value of the `x-consus-key-id` response header, empty
+    string if absent. Placed after `consus_request_id`.
+  - `dropped` — number of entries lost (queue full or write failure) since the
+    previous line was written; 0 when the log is complete. Placed after
+    `client_disconnected`.

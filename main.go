@@ -152,6 +152,7 @@ func loadConfig() (config, error) {
 type entry struct {
 	TS                 string `json:"ts"`
 	ConsusRequestID    string `json:"consus_request_id"`
+	ConsusKeyID        string `json:"consus_key_id"`
 	KeySHA256          string `json:"key_sha256"`
 	Path               string `json:"path"`
 	Method             string `json:"method"`
@@ -161,8 +162,13 @@ type entry struct {
 	Stream             bool   `json:"stream"`
 	Truncated          bool   `json:"truncated"`
 	ClientDisconnected bool   `json:"client_disconnected"`
-	Request            string `json:"request"`
-	Response           string `json:"response"`
+	// Dropped is how many entries were lost — queue full, or a write that
+	// failed — since the previous line was written. Set by the writer, so the
+	// log itself carries durable evidence of its own gaps; the in-memory
+	// counter behind /healthz does not survive a restart.
+	Dropped  int64  `json:"dropped"`
+	Request  string `json:"request"`
+	Response string `json:"response"`
 
 	// day is the UTC date the request started, and decides which file the
 	// entry belongs in. It is derived at request time rather than at write
@@ -392,6 +398,7 @@ func (s *server) proxy(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	e.ConsusRequestID = resp.Header.Get("x-consus-request-id")
+	e.ConsusKeyID = resp.Header.Get("x-consus-key-id")
 	e.Stream = strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
 	e.Status = relayableStatus(resp.StatusCode)
 
@@ -501,6 +508,12 @@ func (s *server) runWriter(done chan<- struct{}) {
 	var curDay string
 	var size int64 // bytes known to be safely on disk in the current file
 	var lastErr string
+	// reported is the portion of the miss counter already accounted for by a
+	// dropped field on some written line. The delta at each write is what was
+	// lost since the previous line — from either enqueue drops or write
+	// failures — and it advances only on a successful write, so nothing is
+	// ever reported into a line that then failed to land.
+	var reported int64
 	defer func() {
 		if f != nil {
 			f.Close()
@@ -540,6 +553,8 @@ func (s *server) runWriter(done chan<- struct{}) {
 			}
 			f, curDay, size = nf, e.day, fi.Size()
 		}
+		missed := s.misses.Load()
+		e.Dropped = missed - reported
 		line, err := json.Marshal(e)
 		if err != nil {
 			miss(err)
@@ -560,6 +575,7 @@ func (s *server) runWriter(done chan<- struct{}) {
 			continue
 		}
 		size += int64(n)
+		reported = missed
 	}
 }
 

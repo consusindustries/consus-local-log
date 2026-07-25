@@ -270,6 +270,10 @@ func TestPartialWriteRollback(t *testing.T) {
 	if s.misses.Load() != 1 {
 		t.Errorf("log_misses = %d, want 1 for the entry that could not be written", s.misses.Load())
 	}
+	// The loss is also recorded durably: the line after the failure carries it.
+	if entries[0].Dropped != 0 || entries[1].Dropped != 1 {
+		t.Errorf("dropped = [%d, %d], want [0, 1] — the failed write must be reported by the next line", entries[0].Dropped, entries[1].Dropped)
+	}
 }
 
 // completeThenVanish is a client that disappears the instant it holds the whole

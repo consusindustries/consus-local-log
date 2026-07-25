@@ -96,9 +96,11 @@ Environment variables only — no flags, no config file.
   that first probe returns, it reports `false` rather than guessing — the
   proxy is already serving traffic at that point.
 - `log_misses` — entries that could not be written since startup. **This is
-  the number to alert on.** It is the only signal that requests are being
-  proxied but not recorded, and anything above zero means the audit trail has
-  a hole in it. The reason is on stderr (`docker logs`, or the journal).
+  the number to alert on.** Anything above zero means requests are being
+  proxied but not recorded, and the reason is on stderr (`docker logs`, or
+  the journal). Every loss is also recorded durably in the log itself: the
+  next line written carries the count in its `dropped` field, so the gap
+  survives a restart even though this counter does not.
 - `uptime_s` — seconds since startup.
 
 ## Log schema
@@ -110,6 +112,7 @@ field is always present.
 |---|---|---|
 | `ts` | string | request start time, RFC 3339 with milliseconds, UTC |
 | `consus_request_id` | string | `x-consus-request-id` response header; `""` if absent |
+| `consus_key_id` | string | `x-consus-key-id` response header — the key id shown on the Consus portal's API Keys page; `""` if absent |
 | `key_sha256` | string | hex SHA-256 of the raw `Authorization` header value; `""` if absent |
 | `path` | string | request path with query |
 | `method` | string | HTTP method |
@@ -119,8 +122,13 @@ field is always present.
 | `stream` | bool | response `Content-Type` contained `text/event-stream` |
 | `truncated` | bool | the capture is not the whole body — see below |
 | `client_disconnected` | bool | client hung up before the response completed |
+| `dropped` | number | entries lost since the previous line was written (queue full or write failure); `0` when the log is complete — alert on any nonzero |
 | `request` | string | captured request body bytes |
 | `response` | string | captured response body bytes; for SSE, the verbatim event transcript |
+
+**Attribution.** `consus_key_id` joins each line one-to-one to the key's owner
+on the portal's API Keys page (or your SIEM's key→owner lookup). Lines where
+the gateway never answered carry no key id but always carry `key_sha256`.
 
 `truncated` is true whenever what was logged is less than what crossed the
 wire, for either of two reasons: the body exceeded `LOCALLOG_MAX_CAPTURE`, or
@@ -141,11 +149,12 @@ jq -r 'select(.response | startswith("base64:")) | .response[7:]' \
 
 ## jq recipes
 
-Usage by key and model:
+Usage by key and model (`consus_key_id` is empty only on lines where the
+gateway never answered — those still carry `key_sha256`):
 
 ```sh
-jq -s 'group_by([.key_sha256, .model])
-       | map({key_sha256: .[0].key_sha256, model: .[0].model, requests: length})
+jq -s 'group_by([.consus_key_id, .model])
+       | map({key_id: .[0].consus_key_id, model: .[0].model, requests: length})
        | sort_by(-.requests)' /var/log/consus/*.jsonl
 ```
 

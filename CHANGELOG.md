@@ -12,6 +12,14 @@ a field's name, type, or meaning will appear here first.
 
 ### Added
 
+- `consus_key_id` log field: the gateway's `x-consus-key-id` response header,
+  joining each line to its owner on the Consus portal's API Keys page. Empty
+  only when the gateway never answered; those lines still carry `key_sha256`.
+- `dropped` log field: entries lost since the previous line was written,
+  whether from a full queue or a write failure. The log now carries durable
+  evidence of its own gaps; `/healthz`'s `log_misses` counter resets on
+  restart, this does not.
+
 - The proxy itself: forwards any path to `LOCALLOG_UPSTREAM` with headers
   copied verbatim, relays responses with a flush after every chunk so SSE
   streams in real time, and appends one JSON line per request to

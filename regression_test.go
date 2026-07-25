@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -268,5 +269,53 @@ func TestPartialWriteRollback(t *testing.T) {
 	}
 	if s.misses.Load() != 1 {
 		t.Errorf("log_misses = %d, want 1 for the entry that could not be written", s.misses.Load())
+	}
+}
+
+// completeThenVanish is a client that disappears the instant it holds the whole
+// response — which is what every command-line client does when it exits.
+type completeThenVanish struct {
+	*httptest.ResponseRecorder
+	cancel context.CancelFunc
+}
+
+func (c *completeThenVanish) Write(p []byte) (int, error) {
+	n, err := c.ResponseRecorder.Write(p)
+	c.cancel() // the connection goes away as the last chunk lands
+	return n, err
+}
+
+func (c *completeThenVanish) Flush() { c.ResponseRecorder.Flush() }
+
+// TestNoDisconnectAfterCompleteResponse covers a client that hangs up the
+// moment it has the full response. Recording that as client_disconnected
+// misrepresents a perfectly normal request as a severed one, and a reviewer
+// reading the audit trail would conclude the caller never got its answer.
+//
+// Found in production traffic: a preflight suite logged 8 of 101 requests this
+// way, every one of them with a complete response body.
+func TestNoDisconnectAfterCompleteResponse(t *testing.T) {
+	const body = `{"id":"resp-1","ok":true}`
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, body)
+	}))
+	defer upstream.Close()
+
+	s, _, dir := startTestServer(t, upstream.URL, 1<<20, nil, "")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	w := &completeThenVanish{httptest.NewRecorder(), cancel}
+	s.ServeHTTP(w, httptest.NewRequest("POST", "/v1/chat", nil).WithContext(ctx))
+
+	if w.Code != 200 || w.Body.String() != body {
+		t.Fatalf("client did not receive the whole response: %d %q", w.Code, w.Body.String())
+	}
+	e := waitLines(t, dir, 1)[0]
+	if e.ClientDisconnected {
+		t.Error("client_disconnected = true for a response the client received in full")
+	}
+	if e.Response != body {
+		t.Errorf("response capture = %q, want %q", e.Response, body)
 	}
 }

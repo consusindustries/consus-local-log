@@ -348,9 +348,6 @@ func (s *server) proxy(w http.ResponseWriter, r *http.Request) {
 		e.Response = logString(respBody)
 		e.Truncated = reqIncomplete || respTruncated
 		e.LatencyMS = s.now().Sub(start).Milliseconds()
-		if r.Context().Err() != nil {
-			e.ClientDisconnected = true
-		}
 		s.enqueue(e)
 	}()
 
@@ -384,6 +381,11 @@ func (s *server) proxy(w http.ResponseWriter, r *http.Request) {
 	// cookie handling, no request mutation.
 	resp, err := s.transport.RoundTrip(outReq)
 	if err != nil {
+		// No response ever existed, so a canceled context here means the client
+		// gave up or hung up mid-upload rather than simply finishing.
+		if r.Context().Err() != nil {
+			e.ClientDisconnected = true
+		}
 		http.Error(w, upstreamUnreachable, http.StatusBadGateway)
 		return
 	}
@@ -415,6 +417,15 @@ func (s *server) proxy(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if rerr != nil {
+			// io.EOF means the whole response reached the client, and a client
+			// that hangs up immediately afterwards — which is what every
+			// command-line client does — has not disconnected in any sense
+			// worth recording. Any other read error while the request context
+			// is canceled is the real thing: the client went away and took the
+			// upstream read down with it.
+			if rerr != io.EOF && r.Context().Err() != nil {
+				e.ClientDisconnected = true
+			}
 			return
 		}
 	}

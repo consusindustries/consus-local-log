@@ -1,0 +1,22 @@
+# This repository does not accept external pull requests (see CONTRIBUTING.md)
+# and GitHub offers no setting to disable them on a public repository, so this
+# closes them politely and immediately rather than letting them sit. It never
+# checks out or runs contributed code — it only comments and closes.
+name: no-prs
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr close "$PR" --comment "Thanks for reading the source — that is exactly what it is public for. This project does not accept pull requests, from anyone: its value is that the entire program can be audited in one sitting, so changes go through a single deliberately narrow channel (see CONTRIBUTING.md). Bug reports and questions are very welcome as issues, and security findings through SECURITY.md — both get read and acted on."

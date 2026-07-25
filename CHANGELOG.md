@@ -19,6 +19,14 @@ a field's name, type, or meaning will appear here first.
   whether from a full queue or a write failure. The log now carries durable
   evidence of its own gaps; `/healthz`'s `log_misses` counter resets on
   restart, this does not.
+- `deploy/`: reference deployment assets — a hardened systemd unit, a Fluent
+  Bit shipper configuration, a logrotate file, and the alert definitions
+  (starting with the one that fires when logging itself stops).
+- Reproducible releases: pushed tags build byte-for-byte rebuildable binaries
+  for five platforms with published SHA256 checksums, gated on the race
+  suite. The README documents how customers verify or reproduce a release.
+- A contributions policy: the source is public for audit and reproduction;
+  pull requests are not accepted and close automatically with an explanation.
 
 - The proxy itself: forwards any path to `LOCALLOG_UPSTREAM` with headers
   copied verbatim, relays responses with a flush after every chunk so SSE

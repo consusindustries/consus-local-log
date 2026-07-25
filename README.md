@@ -295,6 +295,31 @@ here:
     counted in `log_misses`; the request is unaffected. A partially written
     line is rolled back so every line in the file always parses.
 
+## Verifying a release
+
+Releases are pinned tags with published checksums, and the binaries are
+**reproducible**: with the Go version stated in the release notes, anyone can
+rebuild them byte-for-byte. You do not have to trust our build machine — you
+can substitute your own.
+
+```sh
+# 1. Verify a download against the published checksums
+sha256sum -c SHA256SUMS --ignore-missing
+
+# 2. Or reproduce the binary entirely from source at the tag
+git checkout v1.0.0
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+  go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" -o rebuilt .
+sha256sum rebuilt   # matches the published linux_amd64 hash exactly
+
+# 3. Inspect what a binary is made of (there are no dependencies to list)
+go version -m consus-local-log_v1.0.0_linux_amd64
+```
+
+The supply chain this asks you to trust is: this source code, which you can
+read in one sitting, and the Go toolchain, which you already trust everywhere
+else.
+
 ## Development
 
 ```sh
@@ -333,6 +358,11 @@ diskutil eject "$dev"
 Privately, please — see [SECURITY.md](SECURITY.md) for the channel and for what
 is in and out of scope. Notable changes, including anything that touches the
 log schema, are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+The source is public for auditing and reproduction, but this project does not
+accept pull requests — [CONTRIBUTING.md](CONTRIBUTING.md) explains why, and
+what is genuinely welcome instead (bug reports, security findings, and
+documentation complaints, all of which get read).
 
 ## License
 

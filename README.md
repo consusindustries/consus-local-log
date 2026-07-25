@@ -48,9 +48,16 @@ Description=Consus Local Log proxy
 ExecStart=/usr/local/bin/consus-local-log
 User=consuslog
 Restart=on-failure
+TimeoutStopSec=900
 [Install]
 WantedBy=multi-user.target
 ```
+
+Shutdown drains in-flight streams, so `TimeoutStopSec` must outlast your
+longest generation — past it, systemd SIGKILLs and buffered log entries die
+with the streams. For production, use the hardened unit in
+[`deploy/`](deploy/), which also covers the shipper, rotation, alerting, and
+sizing.
 
 **Local, from source**
 
@@ -80,6 +87,11 @@ Environment variables only — no flags, no config file.
 | `LOCALLOG_UPSTREAM` | `https://api.consus.io` | upstream base URL |
 | `LOCALLOG_DIR` | `/var/log/consus` | log directory, created if missing (0750) |
 | `LOCALLOG_MAX_CAPTURE` | `10485760` | per-direction capture cap in bytes |
+
+Worst-case memory is about `2 × LOCALLOG_MAX_CAPTURE × (256 + concurrent
+requests)` — several GB at the default cap for a busy shared instance. Set
+the cap deliberately and size the host from it; disk runs 50–100 MB per
+heavy user per day before compression.
 
 ## Health
 
@@ -180,32 +192,20 @@ jq -r 'select(.consus_request_id != "")
 
 ## Rotation and archival
 
-The proxy already starts a new file each UTC day, so rotation is only
-compression and expiry. `delaycompress` leaves the newest rotation
-uncompressed in case it is still receiving the current day's writes (the
-writer follows the rename until midnight UTC, then opens the new date file):
-
-```
-# /etc/logrotate.d/consus-local-log
-/var/log/consus/*.jsonl {
-    daily
-    missingok
-    notifempty
-    compress
-    delaycompress
-    maxage 90
-    nocreate
-}
-```
-
-Because the files already carry their date, rotation is only compressing and
-expiring them — if you would rather not have `.1` suffixes on date-named
-files, two `find` lines in cron do the same job:
+The proxy already starts a new file each UTC day, so "rotation" is only
+compressing and expiring closed files — and the recommended way to do that
+never touches the active file at all. Two `find` lines in cron:
 
 ```sh
 find /var/log/consus -name '*.jsonl' -mtime +1 -exec gzip {} +
 find /var/log/consus -name '*.jsonl.gz' -mtime +90 -delete
 ```
+
+If you standardize on logrotate instead, use the snippet in
+[`deploy/logrotate/`](deploy/logrotate/consus-local-log). It works — the
+writer follows a rename until midnight UTC, and `delaycompress` keeps the
+still-active rotation readable — but it renames date-stamped files for no
+gain, so prefer the `find` lines.
 
 Nightly archive to a bucket you own (skips the active day's file):
 

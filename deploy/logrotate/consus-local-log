@@ -1,0 +1,19 @@
+# /etc/logrotate.d/consus-local-log
+#
+# The proxy already starts a new file each UTC day, so rotation is only
+# compression and expiry. delaycompress leaves the newest rotation
+# uncompressed in case it is still receiving the current day's writes (the
+# writer follows a rename until midnight UTC, then opens the new date file).
+#
+# Prefer no logrotate at all if you can: two find(1) lines in cron compress
+# and expire date-named files without ever touching the active one — see the
+# README's "Rotation and archival" section.
+/var/log/consus/*.jsonl {
+    daily
+    missingok
+    notifempty
+    compress
+    delaycompress
+    maxage 90
+    nocreate
+}

@@ -1,0 +1,58 @@
+# Production systemd unit for consus-local-log.
+#
+# Prerequisite: a service user —
+#   sudo useradd --system --shell /usr/sbin/nologin consuslog
+#
+# The log directory is created and owned by systemd (LogsDirectory below), so
+# no manual mkdir/chown is needed. Install as
+# /etc/systemd/system/consus-local-log.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now consus-local-log
+
+[Unit]
+Description=Consus Local Log proxy
+Documentation=https://github.com/consus-io/consus-local-log
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=consuslog
+Group=consuslog
+ExecStart=/usr/local/bin/consus-local-log
+
+# Creates /var/log/consus owned consuslog:consuslog at the mode the proxy
+# expects. Give your SIEM shipper read access via the consuslog group.
+LogsDirectory=consus
+LogsDirectoryMode=0750
+UMask=0027
+Environment=LOCALLOG_DIR=/var/log/consus
+
+Restart=always
+RestartSec=2
+
+# Shutdown drains in-flight streams with no deadline of its own; this is the
+# real bound. Set it longer than your longest model generation — when it
+# expires, systemd sends SIGKILL, which severs streams and discards up to 256
+# buffered log entries. A second `systemctl stop` (or kill -TERM) terminates
+# the proxy immediately if you need it down now.
+KillSignal=SIGTERM
+TimeoutStopSec=900
+
+# Hardening. The proxy needs outbound sockets and its log directory; nothing
+# else. Every line below removes something it never uses.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

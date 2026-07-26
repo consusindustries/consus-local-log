@@ -3,8 +3,16 @@
 # closes them politely and immediately rather than letting them sit. It never
 # checks out or runs contributed code — it only comments and closes.
 #
-# Maintainers are exempt: the project's own work flows through PRs so that CI
-# gates every merge; the policy is about outside contributions, not reviews.
+# Only pull requests from forks are closed, which is exactly what "external"
+# means here: opening one any other way requires write access to this
+# repository. Maintainers and Dependabot push branches to the repo itself, so
+# both are exempt without being named.
+#
+# This deliberately does not test author_association. That field reports MEMBER
+# only for *public* organization membership, so a maintainer whose membership is
+# private arrives as CONTRIBUTOR and gets their own pull request closed — which
+# is what happened before this rule replaced it. Fork or not-fork is a fact
+# about the pull request rather than about who is looking at it.
 name: no-prs
 on:
   pull_request_target:
@@ -15,7 +23,7 @@ permissions:
 
 jobs:
   close:
-    if: ${{ !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) }}
+    if: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
     runs-on: ubuntu-latest
     steps:
       - env:

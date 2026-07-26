@@ -2,6 +2,9 @@
 # and GitHub offers no setting to disable them on a public repository, so this
 # closes them politely and immediately rather than letting them sit. It never
 # checks out or runs contributed code — it only comments and closes.
+#
+# Maintainers are exempt: the project's own work flows through PRs so that CI
+# gates every merge; the policy is about outside contributions, not reviews.
 name: no-prs
 on:
   pull_request_target:
@@ -12,6 +15,7 @@ permissions:
 
 jobs:
   close:
+    if: ${{ !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) }}
     runs-on: ubuntu-latest
     steps:
       - env:

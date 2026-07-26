@@ -22,10 +22,12 @@ import (
 	"time"
 )
 
-// TestRequestCaptureIncompleteIsFlagged covers the most common real rejection:
-// the gateway answers on headers alone (an expired key) and never reads the
-// body. The capture is then only as far as the transport got, and the log must
-// say so rather than presenting a half prompt as the whole one.
+// TestRequestCaptureIncompleteIsFlagged covers a rejection that lands while the
+// upload is still in flight: the gateway answers on headers alone (an expired
+// key) and never reads the body. The capture is then only as far as the
+// transport got, and the log must say so rather than presenting a half prompt
+// as the whole one. It takes a body this large to reach that state at all —
+// the test below pins the ordinary-sized case, which behaves the other way.
 func TestRequestCaptureIncompleteIsFlagged(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized) // never touches r.Body
@@ -47,6 +49,40 @@ func TestRequestCaptureIncompleteIsFlagged(t *testing.T) {
 	}
 	if len(e.Request) > len(payload) {
 		t.Errorf("captured %d bytes, more than the %d sent", len(e.Request), len(payload))
+	}
+}
+
+// TestSmallRequestCaptureIsCompleteOnRejection is the other half of the case
+// above, and the one a reader is more likely to get wrong. An ordinary request
+// finishes crossing the wire before the rejection comes back, so the capture
+// really is the whole body and truncated must stay false. Pinned because the
+// opposite is easy to assume and was once written into the README: a 4xx does
+// not imply a partial capture, and believing it would lead an investigator to
+// discount a complete record of a rejected prompt.
+func TestSmallRequestCaptureIsCompleteOnRejection(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden) // never touches r.Body
+	}))
+	defer upstream.Close()
+
+	_, proxyURL, dir := startTestServer(t, upstream.URL, 10<<20, nil, "")
+
+	payload := `{"model":"fab-1","messages":[{"role":"user","content":"fabricated prompt"}]}`
+	resp, err := http.Post(proxyURL+"/v1/chat/completions", "application/json", strings.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	e := waitLines(t, dir, 1)[0]
+	if e.Status != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", e.Status)
+	}
+	if e.Truncated {
+		t.Error("truncated = true for a body that finished crossing the wire: a rejected request is not automatically an incomplete capture")
+	}
+	if e.Request != payload {
+		t.Errorf("request capture = %q, want the whole body %q", e.Request, payload)
 	}
 }
 

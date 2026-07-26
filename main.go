@@ -158,9 +158,13 @@ func loadConfig() (config, error) {
 
 // entry is one log line. Every exported field is always present in the output.
 type entry struct {
-	TS                 string `json:"ts"`
-	ConsusRequestID    string `json:"consus_request_id"`
-	ConsusKeyID        string `json:"consus_key_id"`
+	TS              string `json:"ts"`
+	ConsusRequestID string `json:"consus_request_id"`
+	ConsusKeyID     string `json:"consus_key_id"`
+	// ConsusKeyLabel is the key's cosmetic label — text the key's owner
+	// chooses and can change at any time. Convenience for humans reading the
+	// log; attribution always rests on ConsusKeyID.
+	ConsusKeyLabel     string `json:"consus_key_label"`
 	KeySHA256          string `json:"key_sha256"`
 	Path               string `json:"path"`
 	Method             string `json:"method"`
@@ -407,6 +411,7 @@ func (s *server) proxy(w http.ResponseWriter, r *http.Request) {
 
 	e.ConsusRequestID = resp.Header.Get("x-consus-request-id")
 	e.ConsusKeyID = resp.Header.Get("x-consus-key-id")
+	e.ConsusKeyLabel = resp.Header.Get("x-consus-key-label")
 	e.Stream = strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
 	e.Status = relayableStatus(resp.StatusCode)
 

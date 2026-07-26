@@ -125,6 +125,7 @@ field is always present.
 | `ts` | string | request start time, RFC 3339 with milliseconds, UTC |
 | `consus_request_id` | string | `x-consus-request-id` response header; `""` if absent |
 | `consus_key_id` | string | `x-consus-key-id` response header — the key id shown on the Consus portal's API Keys page; `""` if absent |
+| `consus_key_label` | string | `x-consus-key-label` response header — the key's cosmetic label, chosen (and changeable) by the key's owner; `""` if it has none |
 | `key_sha256` | string | hex SHA-256 of the raw credential the client sent — the `Authorization` value if present, else `x-api-key`; `""` if neither |
 | `path` | string | request path with query |
 | `method` | string | HTTP method |
@@ -145,7 +146,10 @@ authenticated. `key_sha256` is the customer-side fallback and cross-check: it
 fingerprints whatever credential the client sent, so it exists even on lines
 the gateway never answered or rejected at the door. If a client sends both
 headers, the fingerprint covers `Authorization` — trust the key id when the
-two disagree.
+two disagree. `consus_key_label` is for reading, not for attribution: it is
+text the key's owner wrote and can rewrite, so a label saying `alice-laptop`
+proves nothing about Alice. Group, join, and investigate by `consus_key_id`;
+show the label next to it.
 
 `truncated` is true whenever what was logged is less than what crossed the
 wire, for either of two reasons: the body exceeded `LOCALLOG_MAX_CAPTURE`, or

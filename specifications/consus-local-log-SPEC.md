@@ -130,3 +130,7 @@ of truth. CHANGELOG.md carries the customer-facing history.
   the key in `x-api-key`, and their lines were logging an empty hash. When a
   client sends both headers, `Authorization` wins; `consus_key_id` from the
   gateway is the authoritative attribution in all cases.
+- 2026-07-26: `consus_key_label` added — value of the `x-consus-key-label`
+  response header, empty string if absent. The key's cosmetic label, chosen by
+  the key's owner. Display convenience only; it is user-controlled text and
+  never an attribution input. Placed after `consus_key_id`.

@@ -381,6 +381,7 @@ func TestRequestID(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("x-consus-request-id", "rid-test-123")
 		w.Header().Set("x-consus-key-id", "key-test-456")
+		w.Header().Set("x-consus-key-label", "erics laptop — dev")
 		io.WriteString(w, "ok")
 	}))
 	defer upstream.Close()
@@ -401,6 +402,9 @@ func TestRequestID(t *testing.T) {
 	}
 	if e.ConsusKeyID != "key-test-456" {
 		t.Errorf("consus_key_id = %q, want key-test-456", e.ConsusKeyID)
+	}
+	if e.ConsusKeyLabel != "erics laptop — dev" {
+		t.Errorf("consus_key_label = %q, want the label verbatim", e.ConsusKeyLabel)
 	}
 }
 
@@ -451,7 +455,7 @@ func TestUpstreamDown(t *testing.T) {
 	}
 
 	e := waitLines(t, dir, 1)[0]
-	if e.Status != 502 || e.Response != "" || e.ConsusRequestID != "" || e.ConsusKeyID != "" {
+	if e.Status != 502 || e.Response != "" || e.ConsusRequestID != "" || e.ConsusKeyID != "" || e.ConsusKeyLabel != "" {
 		t.Errorf("log entry: %+v", e)
 	}
 	if e.LatencyMS < 0 {

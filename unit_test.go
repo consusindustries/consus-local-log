@@ -220,6 +220,7 @@ func TestEntryGoldenJSON(t *testing.T) {
 		TS:                 "2026-01-02T03:04:05.678Z",
 		ConsusRequestID:    "rid-1",
 		ConsusKeyID:        "key-01h",
+		ConsusKeyLabel:     "erics-laptop",
 		KeySHA256:          "deadbeef",
 		Path:               "/v1/chat?stream=1",
 		Method:             "POST",
@@ -238,7 +239,7 @@ func TestEntryGoldenJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"ts":"2026-01-02T03:04:05.678Z","consus_request_id":"rid-1","consus_key_id":"key-01h","key_sha256":"deadbeef","path":"/v1/chat?stream=1","method":"POST","model":"fab-1","status":200,"latency_ms":42,"stream":true,"truncated":false,"client_disconnected":false,"dropped":0,"request":"{\"model\":\"fab-1\"}","response":"data: ok\n\n"}`
+	want := `{"ts":"2026-01-02T03:04:05.678Z","consus_request_id":"rid-1","consus_key_id":"key-01h","consus_key_label":"erics-laptop","key_sha256":"deadbeef","path":"/v1/chat?stream=1","method":"POST","model":"fab-1","status":200,"latency_ms":42,"stream":true,"truncated":false,"client_disconnected":false,"dropped":0,"request":"{\"model\":\"fab-1\"}","response":"data: ok\n\n"}`
 	if string(got) != want {
 		t.Fatalf("log schema changed:\n got: %s\nwant: %s", got, want)
 	}

@@ -153,10 +153,13 @@ show the label next to it.
 
 `truncated` is true whenever what was logged is less than what crossed the
 wire, for either of two reasons: the body exceeded `LOCALLOG_MAX_CAPTURE`, or
-the request body was never fully read by the upstream — which is what happens
-when the gateway rejects on headers alone, for instance a 401 on an expired
-key. Treat a `truncated` line as evidence that a request occurred, not as the
-complete text of it.
+the request body never finished crossing it — the gateway answered on headers
+alone, for instance a 401 on an expired key, while the upload was still in
+flight. That second case needs a body big enough to still be going out when the
+answer arrives; an ordinary request finishes first, so most rejected requests
+log `truncated: false` and their capture is the whole prompt. Treat a
+`truncated` line as evidence that a request occurred, not as the complete text
+of it.
 
 **Binary bodies.** Bodies that are not valid UTF-8 — a gzip-encoded response,
 which is what most SDKs ask for by default — cannot be stored in a JSON string

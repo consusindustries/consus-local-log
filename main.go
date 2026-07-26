@@ -257,8 +257,10 @@ func (t *captureReader) finish() { t.done.Store(true) }
 
 // snapshot returns the captured bytes and whether the capture is incomplete:
 // either the cap was hit, or the body was never read to its end because the
-// upstream answered without reading it (a 401 on an expired key is the common
-// case) or the client hung up mid-upload.
+// upstream answered while the upload was still in flight (a 401 on an expired
+// key, against a body large enough to still be going out) or the client hung up
+// mid-upload. An ordinary-sized body finishes crossing the wire before any
+// rejection comes back, so a 4xx on its own does not make a capture partial.
 func (t *captureReader) snapshot() ([]byte, bool) {
 	// Load done before reading the buffer, not after: if it is set, every
 	// write that will ever happen has already happened, so what we read next

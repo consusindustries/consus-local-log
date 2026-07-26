@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Local Log on Azure Government</title>
+<style>
+  :root {
+    --paper: #FCFCFA; --ink: #1A1D21; --muted: #5C6470; --line: #E3E1DB;
+    --code-bg: #F3F2EE; --accent: #2F6284; --accent-ink: #24506E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#15181C; --ink:#E8E6E1; --muted:#98A0AB; --line:#2A2F36;
+            --code-bg:#1D2126; --accent:#82B4DA; --accent-ink:#9CC4E4; }
+  }
+  :root[data-theme="dark"]  { --paper:#15181C; --ink:#E8E6E1; --muted:#98A0AB; --line:#2A2F36;
+                              --code-bg:#1D2126; --accent:#82B4DA; --accent-ink:#9CC4E4; }
+  :root[data-theme="light"] { --paper:#FCFCFA; --ink:#1A1D21; --muted:#5C6470; --line:#E3E1DB;
+                              --code-bg:#F3F2EE; --accent:#2F6284; --accent-ink:#24506E; }
+  * { box-sizing: border-box; margin: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font: 400 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding: 0 24px;
+  }
+  main { max-width: 680px; margin: 0 auto; padding: 56px 0 96px; }
+  a { color: var(--accent-ink); text-decoration: none; border-bottom: 1px solid var(--line); }
+  a:hover, a:focus-visible { border-bottom-color: var(--accent); outline: none; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  nav { display: flex; gap: 20px; font-size: 13px; letter-spacing: .06em;
+        text-transform: uppercase; color: var(--muted); margin-bottom: 72px; }
+  nav a { color: var(--muted); border: none; }
+  nav .here { color: var(--ink); border-bottom: 2px solid var(--accent); padding-bottom: 2px; }
+  .eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); }
+  h1 { font-size: 34px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 650;
+       margin: 10px 0 14px; text-wrap: balance; }
+  .lede { font-size: 21px; line-height: 1.5; color: var(--muted); text-wrap: balance; }
+  .facts { display: flex; flex-wrap: wrap; gap: 12px 36px; margin: 40px 0 0;
+           padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .facts div { font-size: 15px; color: var(--muted); }
+  .facts b { display: block; font-size: 17px; color: var(--ink); font-weight: 600;
+             font-variant-numeric: tabular-nums; }
+  .path { display: flex; align-items: stretch; gap: 10px; margin: 48px 0 8px; flex-wrap: wrap; }
+  .path .box { border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px;
+               font: 500 13px/1.45 ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace; }
+  .path .box small { display: block; color: var(--muted); font-weight: 400; }
+  .path .arrow { align-self: center; color: var(--muted); }
+  .path .you { border-color: var(--accent); }
+  .pathnote { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  h2 { font-size: 22px; letter-spacing: -0.01em; font-weight: 650; margin: 72px 0 8px; text-wrap: balance; }
+  h2 + p.sub { color: var(--muted); margin-bottom: 8px; }
+  ol.steps { list-style: none; padding: 0; counter-reset: step; margin-top: 8px; }
+  ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 56px 1fr;
+                  gap: 0 18px; padding: 30px 0; border-top: 1px solid var(--line); }
+  ol.steps > li::before { content: counter(step, decimal-leading-zero); grid-row: 1 / span 9;
+                          font: 300 26px/1.15 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+                          color: var(--accent); font-variant-numeric: tabular-nums; }
+  ol.steps h3 { font-size: 17px; font-weight: 650; }
+  ol.steps p { grid-column: 2; font-size: 15px; line-height: 1.6; color: var(--muted); margin-top: 4px; }
+  ol.steps p b, ol.steps p code { color: var(--ink); }
+  pre { grid-column: 2; background: var(--code-bg); border-radius: 6px; padding: 14px 16px;
+        margin-top: 12px; overflow-x: auto;
+        font: 400 13px/1.6 ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace; }
+  code { font: 400 .92em ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace; }
+  pre .c { color: var(--muted); }
+  .never { border-top: 1px solid var(--line); margin-top: 8px; }
+  .never li { list-style: none; padding: 14px 0; border-bottom: 1px solid var(--line);
+              display: grid; grid-template-columns: 24px 1fr; gap: 14px; font-size: 15px; }
+  .never li::before { content: "—"; color: var(--accent); }
+  .never b { font-weight: 600; }
+  ul.never { padding: 0; }
+  footer { margin-top: 88px; padding-top: 20px; border-top: 1px solid var(--line);
+           font-size: 14px; color: var(--muted); line-height: 1.7; }
+  @media (max-width: 560px) {
+    .path { flex-direction: column; }
+    .path .arrow { transform: rotate(90deg); align-self: flex-start; margin-left: 20px; }
+    ol.steps > li { grid-template-columns: 40px 1fr; }
+  }
+  @media print {
+    :root { --paper:#fff; --ink:#000; --muted:#444; --line:#ccc; --code-bg:#f4f4f4;
+            --accent:#2F6284; --accent-ink:#24506E; }
+    nav { display: none; }
+    ol.steps > li { break-inside: avoid; }
+    main { padding-top: 12px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <nav aria-label="Clouds">
+    <a href="aws-govcloud.html">AWS GovCloud</a>
+    <a class="here" href="azure-government.html" aria-current="page">Azure Government</a>
+    <a href="gcp.html">Google Cloud</a>
+  </nav>
+
+  <p class="eyebrow">Consus Local Log · Deployment</p>
+  <h1>Run Local Log in Azure Government.</h1>
+  <p class="lede">One VM. Four environment variables. No SDKs, no managed identity for
+  the proxy, nothing phones home. About half a day, and most of that is your
+  TLS certificate and your SIEM.</p>
+
+  <div class="facts">
+    <div><b>1</b> virtual machine</div>
+    <div><b>10</b> steps</div>
+    <div><b>0</b> cloud APIs in the binary</div>
+    <div><b>~½ day</b> including the pilot request</div>
+  </div>
+
+  <h2>What you are building</h2>
+  <p class="pathnote">Every box except the last one is yours, in your subscription, under your controls.</p>
+  <div class="path">
+    <div class="box you">your tools<small>base URL changed, keys unchanged</small></div>
+    <div class="arrow">→</div>
+    <div class="box you">App Gateway<small>your TLS, Key Vault cert</small></div>
+    <div class="arrow">→</div>
+    <div class="box you">Local Log · VM<small>:4000 · logs to managed disk · ships to Sentinel</small></div>
+    <div class="arrow">→</div>
+    <div class="box">api.consus.io<small>the only egress</small></div>
+  </div>
+
+  <h2>Ten steps</h2>
+  <ol class="steps">
+    <li>
+      <h3>Launch one VM.</h3>
+      <p>Ubuntu 24.04 LTS in a <b>private subnet</b> (no public IP), in a Virtual
+      Machine Scale Set with capacity one — <code>usgovvirginia</code> or your
+      region. The scale set is your availability story: if the VM dies, Azure
+      replaces it without a human.</p>
+      <pre>az vmss create --resource-group consus --name consus-local-log \
+  --image Ubuntu2404 --instance-count 1 --orchestration-mode Flexible \
+  --vnet-name corp-vnet --subnet private --public-ip-address ""</pre>
+    </li>
+    <li>
+      <h3>Install the binary — and prove it.</h3>
+      <p>Download the pinned release and verify the checksum. If your review
+      process demands more, rebuild it from source with the same Go version and
+      compare hashes: the builds are byte-for-byte reproducible.</p>
+      <pre>curl -LO https://github.com/consus-io/consus-local-log/releases/download/v1.0.0/consus-local-log_v1.0.0_linux_amd64
+curl -LO https://github.com/consus-io/consus-local-log/releases/download/v1.0.0/SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing
+sudo install -m 0755 consus-local-log_v1.0.0_linux_amd64 /usr/local/bin/consus-local-log</pre>
+    </li>
+    <li>
+      <h3>Give the log its own encrypted disk.</h3>
+      <p>A dedicated managed data disk — server-side encryption is on by default;
+      use your own key via a disk encryption set if policy requires. Size for
+      50–100&nbsp;MB per heavy user per day before compression.</p>
+      <pre>sudo mkfs.xfs /dev/disk/azure/scsi1/lun0
+echo "UUID=$(sudo blkid -s UUID -o value /dev/disk/azure/scsi1/lun0) /var/log/consus xfs defaults,noatime 0 2" | sudo tee -a /etc/fstab
+sudo mkdir -p /var/log/consus &amp;&amp; sudo mount -a</pre>
+    </li>
+    <li>
+      <h3>Run it as a service.</h3>
+      <p>The unit in <code>deploy/systemd/</code> creates the log directory with the
+      right owner and modes, strips every capability the proxy never uses, and
+      sets the stop timeout so a graceful shutdown outlasts your longest stream.</p>
+      <pre>sudo useradd --system --shell /usr/sbin/nologin consuslog
+sudo cp deploy/systemd/consus-local-log.service /etc/systemd/system/
+sudo systemctl daemon-reload &amp;&amp; sudo systemctl enable --now consus-local-log</pre>
+    </li>
+    <li>
+      <h3>Put your TLS in front.</h3>
+      <p>An <b>internal</b> Application Gateway with a certificate from Key Vault.
+      Backend pool: the VM on port 4000; health probe <code>/healthz</code> — it
+      answers instantly even while the upstream is down, so it never flaps
+      during an outage.</p>
+    </li>
+    <li>
+      <h3>Name it yours.</h3>
+      <p>A Private DNS zone record — <code>llm.internal.example.com</code> —
+      pointing at the gateway's private frontend. Your domain, deliberately:
+      everything inside the boundary is yours, and the name should say so.</p>
+    </li>
+    <li>
+      <h3>Open exactly one door each way.</h3>
+      <p>NSG: inbound 4000 from the Application Gateway subnet only; outbound 443
+      through your NAT gateway so the proxy can reach the Consus gateway. The
+      VM needs <b>direct</b> outbound 443 — no corporate CONNECT proxy in the
+      middle.</p>
+    </li>
+    <li>
+      <h3>Ship the log.</h3>
+      <p>Azure Monitor Agent with a Data Collection Rule: a <b>Custom Text Log</b>
+      source on <code>/var/log/consus/*.jsonl</code> into a Log Analytics table
+      your Sentinel workspace reads. AMA authenticates with managed identity —
+      <b>the only identity in this whole deployment, and it belongs to the
+      agent, not the proxy.</b> Prefer Splunk or Fluent&nbsp;Bit? The log is
+      plain JSONL; use <code>deploy/fluent-bit/</code>. Ship the service's
+      stderr from journald too — it carries the <i>why</i> behind any logging
+      failure.</p>
+    </li>
+    <li>
+      <h3>Alarm on silence.</h3>
+      <p>Scheduled KQL alerts from <code>deploy/alerts.md</code>: any line with
+      <code>dropped&nbsp;&gt;&nbsp;0</code> (entries lost — page), an absence alert
+      when no lines arrive during working hours, and disk at 80%. For this
+      product, <b>logging-stopped is a worse failure than proxy-down.</b></p>
+      <pre>ConsusLocalLog_CL | where dropped_d > 0
+ConsusLocalLog_CL | summarize last=max(TimeGenerated) | where last < ago(15m)</pre>
+    </li>
+    <li>
+      <h3>Lock the exits.</h3>
+      <p>Host access through Azure Bastion only — no public SSH. Nightly archive
+      to your own storage account. When the pilot holds, make it mandatory: an
+      Azure Firewall application rule allowing <code>api.consus.io:443</code>
+      from this subnet alone, denied everywhere else, so stragglers fail fast
+      instead of hanging.</p>
+      <pre>15 0 * * * azcopy sync /var/log/consus "https://YOURACCOUNT.blob.core.usgovcloudapi.net/consus-local-log" --exclude-pattern "$(date -u +\%F).jsonl"</pre>
+    </li>
+  </ol>
+
+  <h2>Tell your people one thing</h2>
+  <p class="sub">Keys, tools, SDKs — unchanged. One setting moves:</p>
+  <pre>export OPENAI_BASE_URL=https://llm.internal.example.com/v1</pre>
+
+  <h2>Verify it, end to end</h2>
+  <pre><span class="c"># 1. The proxy is up and can see the gateway</span>
+curl -s https://llm.internal.example.com/healthz
+<span class="c">   {"upstream_ok":true,"log_misses":0,"uptime_s":42}</span>
+
+<span class="c"># 2. One real request through it</span>
+curl -s https://llm.internal.example.com/v1/models -H "x-api-key: $YOUR_KEY"
+
+<span class="c"># 3. The line is on disk — and in Sentinel moments later</span>
+jq -c '{ts, path, status, consus_key_id}' /var/log/consus/$(date -u +%F).jsonl | tail -1</pre>
+
+  <h2>What this never needs</h2>
+  <ul class="never">
+    <li><span><b>No managed identity for the proxy.</b> The binary makes no Azure calls.
+      The only credentialed component is your log shipper.</span></li>
+    <li><span><b>No inbound from the internet.</b> Private subnet, internal gateway,
+      Bastion for humans. Nothing listens publicly.</span></li>
+    <li><span><b>No agent, no callback, no telemetry.</b> The proxy's only outbound
+      connection is the traffic you send through it.</span></li>
+    <li><span><b>No sovereign-cloud surprises.</b> Government-cloud friction usually
+      comes from software assuming commercial endpoints. This binary assumes
+      none — its entire cloud surface is a Linux process, a disk, and outbound
+      443.</span></li>
+  </ul>
+
+  <footer>
+    <p>This page is one of three — <a href="aws-govcloud.html">AWS GovCloud</a> and
+    <a href="gcp.html">Google Cloud</a> follow the same ten steps; only the service names
+    change. Companion files: <code>deploy/systemd/</code>, <code>deploy/fluent-bit/</code>,
+    <code>deploy/alerts.md</code>. Schema, jq recipes, and the egress rule: the project README.</p>
+  </footer>
+</main>
+</body>
+</html>

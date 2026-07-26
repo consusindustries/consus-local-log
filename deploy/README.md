@@ -10,6 +10,10 @@ command inline:
 
 The three follow the same ten steps; only the service names change.
 
+Before a release ships, the files in this directory are exercised on a real
+Linux host — see [`local-vm-verification.md`](local-vm-verification.md). That
+is a maintainer procedure; skip it if you are here to deploy.
+
 Everything here is example configuration for running one Local Log instance
 as a company-wide service. The binary itself needs none of it — these files
 exist so that a production deployment is a half-day of copying and reviewing,

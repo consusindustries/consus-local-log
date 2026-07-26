@@ -1,5 +1,15 @@
 # Deployment reference
 
+Deploying on a government cloud? Start with the one-page guide for your
+platform — each is a single self-contained HTML file, printable, with every
+command inline:
+
+- [`aws-govcloud.html`](aws-govcloud.html)
+- [`azure-government.html`](azure-government.html)
+- [`gcp.html`](gcp.html)
+
+The three follow the same ten steps; only the service names change.
+
 Everything here is example configuration for running one Local Log instance
 as a company-wide service. The binary itself needs none of it — these files
 exist so that a production deployment is a half-day of copying and reviewing,

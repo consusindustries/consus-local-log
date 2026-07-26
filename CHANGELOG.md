@@ -22,6 +22,9 @@ a field's name, type, or meaning will appear here first.
 - `deploy/`: reference deployment assets — a hardened systemd unit, a Fluent
   Bit shipper configuration, a logrotate file, and the alert definitions
   (starting with the one that fires when logging itself stops).
+- Per-cloud deployment guides: single-file, self-contained HTML one-pagers
+  for AWS GovCloud, Azure Government, and Google Cloud, following the same
+  ten steps on each platform.
 - Reproducible releases: pushed tags build byte-for-byte rebuildable binaries
   for five platforms with published SHA256 checksums, gated on the race
   suite. The README documents how customers verify or reproduce a release.

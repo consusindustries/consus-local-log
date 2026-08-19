@@ -20,7 +20,7 @@ Design intent: a security engineer must be able to read the entire source in one
 
 - `main.go` — the program
 - `main_test.go` — tests (see acceptance criteria)
-- `go.mod` — module `github.com/consus-io/consus-local-log`, go 1.22+
+- `go.mod` — module `github.com/consusindustries/consus-local-log`, go 1.22+
 - `Dockerfile` — two-stage, final stage `FROM scratch`, one binary, runs as nonroot UID
 - `README.md` — see README requirements
 - `LICENSE` — Apache 2.0

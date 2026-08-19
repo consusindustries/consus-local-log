@@ -8,7 +8,7 @@ reaches 1.0.0.
 The log schema is the public interface most consumers depend on. Any change to
 a field's name, type, or meaning will appear here first.
 
-## [Unreleased]
+## [1.0.0] - 2026-08-19
 
 ### Added
 

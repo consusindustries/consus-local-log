@@ -1,6 +1,6 @@
 # consus-local-log
 
-[![ci](https://github.com/consus-io/consus-local-log/actions/workflows/ci.yml/badge.svg)](https://github.com/consus-io/consus-local-log/actions/workflows/ci.yml)
+[![ci](https://github.com/consusindustries/consus-local-log/actions/workflows/ci.yml/badge.svg)](https://github.com/consusindustries/consus-local-log/actions/workflows/ci.yml)
 
 A stateless reverse proxy you run inside your own network, between your tools
 and the Consus gateway. It forwards every request untouched, relays responses

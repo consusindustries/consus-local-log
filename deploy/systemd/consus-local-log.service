@@ -10,7 +10,7 @@
 
 [Unit]
 Description=Consus Local Log proxy
-Documentation=https://github.com/consus-io/consus-local-log
+Documentation=https://github.com/consusindustries/consus-local-log
 After=network-online.target
 Wants=network-online.target
 

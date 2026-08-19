@@ -4,7 +4,7 @@
 
 Please report suspected vulnerabilities privately, through GitHub's **Report a
 vulnerability** button on the [Security
-tab](https://github.com/consus-io/consus-local-log/security) of this
+tab](https://github.com/consusindustries/consus-local-log/security) of this
 repository. That opens a private advisory only the maintainers can see.
 
 If you cannot use GitHub, open a public issue asking for a private channel —
